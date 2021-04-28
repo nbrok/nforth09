@@ -35,9 +35,9 @@ ffalse		equ	0
 
 	org	$0100
 
-	sts	return			;Save old SP for bye
+entry0	sts	return			;Save old SP for bye
 	jmp	cold			;Start Forth
-	sts	return			;Save old SP for bye
+entry1	sts	return			;Save old SP for bye
 	jmp	warm			;Warm re-entry
 
 ;These are the system variables, this Forth is written for RAM-use.
@@ -2168,6 +2168,10 @@ cold	lds	#stack_ptr		;Init Return Pointer
 	std	var_cline		;Init CHAR/LINE constant
 	ldd	#line_buffer		;Init TIB constant
 	std	var_tib
+	ldd	#link999
+	std	var_link_end		;Init last link
+	ldd	#einde
+	std	var_here		;Init first free space
 	jmp	warm			;Execute warm
 
 	fdb	S0

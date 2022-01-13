@@ -1,25 +1,33 @@
 	cpu	6809
 ;************************************************************************
 ;* Nforth stands for Nick's Forth, it's a Forth interpreter created     *
-;* from scratch for the Scrumpel 8 6809 Single Board Computer           *
-;*                                                                      *
-;* All the basic words are built in. If you like to make it a complete  *
-;* compliant ANSI Forth, go ahead... but keep my name in the source!    *
+;* from scratch for the 68HC11 and adapted for the Scrumpel 8 6809      *
+;* Computer.                                                            *
+;* This is my own dialect of Standard Forth, All the basic words are    *
+;* built in. If you like to make it a complete compliant ANSI Forth     *
+;* feel free to do so, but keep my name in this sourcecode!             *
 ;* Nforth is donated as public domain under the GNU Licence             *
-;* Copyright 2021 by N. Brok nick@avboek.nl  Cross assembler version    *
-;* Optimized for 6809, using user SP in stead of IX                     *
+;* Copyright 2022 by N. Brok nick@avboek.nl  Cross assembler version    *
+;* Optimized for 6809, using user SP in stead of IX.                    *
 ;************************************************************************
 
 stack_ptr	equ	$bf00		;Change this to your free RAM location!
+
 ;Here the return-pointer is situated used by the subroutines used in this Forth.
 
 dsp		equ	$bd00		;The same as above.
+
 ;This is the data stack-pointer, here you can find the user's data.
 
 scdr		equ	$cf01		;ACIA Data register
 scsr		equ	$cf00		;ACIA Status register
 ledadres	equ	$cf20		;PPORT leds and switches
-
+viaadres	equ	$cf40		;VIA
+viaportb	equ	viaadres	;Port B
+viaporta	equ	viaadres+1	;Port A
+viaddrb		equ	viaadres+2	;Port B direction register
+viaddra		equ	viaadres+3	;Port A direction register
+monitorwarm	equ	$c01b		;Save return to monitor
 cr		equ	$d
 lf		equ	$a
 bs		equ	$8
@@ -35,15 +43,12 @@ ffalse		equ	0
 
 	org	$0100
 
-entry0	sts	return			;Save old SP for bye
-	jmp	cold			;Start Forth
-entry1	sts	return			;Save old SP for bye
-	jmp	warm			;Warm re-entry
+entry0	jmp	cold			;Start Forth Cold
+entry1	jmp	warm			;Start Forth Warm
 
 ;These are the system variables, this Forth is written for RAM-use.
 
 line_buffer	rmb	128
-return		rmb	2
 numcnt		rmb	2
 ibvar_flags	rmb	1
 var_tib		rmb	2
@@ -66,24 +71,24 @@ ccount		rmb	1
 scratch1	equ	500		;Scratchpad for find
 scratch2	equ	scratch1+32	;Scratchpad for number
 
-;*	Some 6809 register conventions used in Nforth:
-;*	USP is used as the data stack pointer (DSP).
-;*	SP is used as the return stack pointer (RSP).
-;*	IY and IX are used for saving and manupulating addresses on
-;*	the return stack.
-;*	D is used as a general purpose 16 bits accumulator.
+;	Some 6809 register conventions used in Nforth:
+;	USP is used as the data stack pointer (DSP).
+;	SSP is used as the return stack pointer (RSP).
+;	IY and IX are used for saving and manupulating addresses on
+;	the return stack.
+;	D is used as a general purpose 16 bits accumulator.
 
-;* Nforth's dictionary structure:
-;* The dictionary is formed by a linked list of the following data.
-;*
-;*	<Start-address of word's machinecode>		(16 bits)
-;*	<link to a previous word>			(16 bits)
-;*	<status+length of word>				(8 bits)
-;*	The first 3 bits (b7-b5) are used for the word's status.
-;*	the length of the word is defined in the last 5 bits.
-;*	<Word's name> 			string[length of word] 
-;*	The max wordlength is 512 bytes, long enough ;-)
-;*	Begin of the word's machine code
+; Nforth's dictionary structure:
+; The dictionary is formed by a linked list of the following data.
+;
+;	<Start-address of word's machinecode>		(16 bits)
+;	<link to a previous word>			(16 bits)
+;	<status+length of word>				(8 bits)
+;	The first 3 bits (b7-b5) are used for the word's status.
+;	the length of the word is defined in the last 5 bits.
+;	<Word's name> 			string[length of word] 
+;	The max wordlength is 512 bytes, long enough ;-)
+;	Begin of the word's machine code
 
 	fdb	dolit
 	fdb	0
@@ -146,7 +151,7 @@ comcom	jsr	call
 	jmp	comma
 
 	fdb	smudge			;This is an old word to disable
-	fdb	link1f			;a word when during compliling an
+	fdb	link1f			;a word when during compiling an
 link1g	fcb	6,"SMUDGE"		;error occured.
 smudge	ldy	var_link_end
 	lda	0,y
@@ -402,8 +407,7 @@ keyq1	clra
 	fdb	bye
 	fdb	link2q
 link2r	fcb	3,"BYE"
-bye	lds	return			;Return to original caller
-	rts
+bye	jmp	monitorwarm		;Save return to the monitor
 
 	fdb	exec
 	fdb	link2r
@@ -482,8 +486,68 @@ link6c	fcb	4,"LED@"
 ledat	jsr	_led
 	jmp	cat
 
-	fdb	spat
+	fdb	_viapb
 	fdb	link6c
+link6d	fcb	5,"VIAPB"
+_viapb	jsr	docon
+	fdb	viaportb
+
+	fdb	_viapa
+	fdb	link6d
+link6e	fcb	5,"VIAPA"
+_viapa	jsr	docon
+	fdb	viaporta
+
+	fdb	_viadrb
+	fdb	link6e
+link6f	fcb	6,"VIAPBD"
+_viadrb	jsr	docon
+	fdb	viaddrb
+
+	fdb	_viadra
+	fdb	link6f
+link6g	fcb	6,"VIAPAD"
+_viadra	jsr	docon
+	fdb	viaddra
+
+	fdb	_viaain
+	fdb	link6g
+link6h	fcb	9,"VIAPAINIT"
+_viaain	jsr	_viadra
+	jmp	cstore
+
+	fdb	_viabin
+	fdb	link6h
+link6i	fcb	9,"VIAPBINIT"
+_viabin	jsr	_viadrb
+	jmp	cstore
+
+	fdb	portaat
+	fdb	link6i
+link6j	fcb	6,"VIAPA@"
+portaat	jsr	_viapa
+	jmp	cat
+
+	fdb	portbat
+	fdb	link6j
+link6k	fcb	6,"VIAPB@"
+portbat	jsr	_viapb
+	jmp	cat
+
+	fdb	portast
+	fdb	link6k
+link6l	fcb	6,"VIAPA!"
+portast	jsr	_viapa
+	jmp	cstore
+
+	fdb	portbst
+	fdb	link6l
+link6m	fcb	6,"VIAPB!"
+portbst	jsr	_viapb
+	jmp	cstore
+
+	fdb	spat
+	fdb	link6m
 link7	fcb	3,"SP@"
 spat	pshs	u			;Save DSP temporary
 	exg	d,u
@@ -2050,8 +2114,8 @@ warm	lds	#stack_ptr		;Init Return Pointer
 link40	fcb	2,"HI"
 _hi	jsr	dotstr
 ;		   1  2   34567890123456789012345678901234567890123456789012  3  4
-	fcb	84,cr,lf,"Nforth version 1.0 for Scrumpel 8 using MC6809 CPU",cr,lf
-	fcb	"(C) 2021 by N. Brok (PE1GOO)",cr,lf
+	fcb	84,cr,lf,"Nforth version 2.0 for Scrumpel 8 using MC6809 CPU",cr,lf
+	fcb	"(C) 2022 by N. Brok (PE1GOO)",cr,lf
 ;		 5678901234567890123456789012  3  4
 	rts
 

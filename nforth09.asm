@@ -10,15 +10,15 @@
 ;* Optimized for 6809, using user SP in stead of IX                     *
 ;************************************************************************
 
-stack_ptr	equ	$7f00		;Change this to your free RAM location!
+stack_ptr	equ	$bf00		;Change this to your free RAM location!
 ;Here the return-pointer is situated used by the subroutines used in this Forth.
 
-dsp		equ	$7d00		;The same as above.
+dsp		equ	$bd00		;The same as above.
 ;This is the data stack-pointer, here you can find the user's data.
 
-scdr		equ	$8301		;ACIA Data register
-scsr		equ	$8300		;ACIA Status register
-ledadres	equ	$8400		;PPORT leds and switches
+scdr		equ	$cf01		;ACIA Data register
+scsr		equ	$cf00		;ACIA Status register
+ledadres	equ	$cf20		;PPORT leds and switches
 
 cr		equ	$d
 lf		equ	$a
@@ -417,9 +417,9 @@ exec	pulu	d
 	fdb	link2s
 link2t	fcb	5,"RESET"
 reset	jsr	dolit
-	fdb	$FFFE
+	fdb	$FFFE			;Get startvector out of ROM
 	jsr	at
-	jmp	exec
+	jmp	exec			;Execute it
 
 	fdb	drop
 	fdb	link2t

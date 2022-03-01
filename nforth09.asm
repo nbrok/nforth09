@@ -2,10 +2,11 @@
 ;************************************************************************
 ;* Nforth stands for Nick's Forth, it's a Forth interpreter created     *
 ;* from scratch for the 68HC11 and adapted for the Scrumpel 8 6809      *
-;* Computer.                                                            *
-;* This is my own dialect of Standard Forth, All the basic words are    *
-;* built in. If you like to make it a complete compliant ANSI Forth     *
-;* feel free to do so, but keep my name in this sourcecode!             *
+;* Computer. This version is called nforth09.                           *
+;* The dialect of standard Forth I use is my own, specially optimised   *
+;* for Scrumpel computers. All the basic Forth words are built in       *
+;* If you like to make it a complete compliant ANSI Forth feel free to  *
+;* do so, but keep my name in this sourcecode!                          *
 ;* Nforth is donated as public domain under the GNU Licence             *
 ;* Copyright 2022 by N. Brok nick@avboek.nl  Cross assembler version    *
 ;* Optimized for 6809, using user SP in stead of IX.                    *
@@ -415,7 +416,12 @@ link2s	fcb	4,"EXEC"
 exec	pulu	d
 	exg	d,x
 	jsr	0,x
-	jmp	warm
+	lds     #stack_ptr              ;Init Return Pointer
+        ldu     #dsp                    ;Init Data-stack Pointer
+        clra
+        clrb
+        std     var_state               ;Interprete-mode is default
+        jmp     quit
 
 	fdb	reset
 	fdb	link2s
@@ -2113,10 +2119,10 @@ warm	lds	#stack_ptr		;Init Return Pointer
 	fdb	link39
 link40	fcb	2,"HI"
 _hi	jsr	dotstr
-;		   1  2   34567890123456789012345678901234567890123456789012  3  4
-	fcb	84,cr,lf,"Nforth version 2.0 for Scrumpel 8 using MC6809 CPU",cr,lf
+;		   1  2   3456789012345678901234567890123456789012345678901234  5  6
+	fcb	86,cr,lf,"NFORTH09 version 2.0 for Scrumpel 8 using MC6809 CPU",cr,lf
 	fcb	"(C) 2022 by N. Brok (PE1GOO)",cr,lf
-;		 5678901234567890123456789012  3  4
+;		 7890123456789012345678901234  5  6
 	rts
 
 	fdb	tick
